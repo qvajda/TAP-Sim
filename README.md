@@ -6,9 +6,9 @@
 Master thesis implementation - Traffic Assignment Problem : Shortest Path Optimization in Directed Graph with Multi-agent Population and Central (partial) Authority
 
 Split into three parts:
-	* Sim - The actual C++ simulation (requires [jansson](http://www.digip.org/jansson/) library) ; also contains the JSON file used as input in the result generation/analysis part of the thesis.
-	* Graph Creation Tool - The processing.js applet to create/edit/visualize graphs used as input for the simulation (requires [processing.js](http://processingjs.org/)). Also contains the python(3.3) script used to "assemble" the separate .pde files composing the applet
-	* OSMImport - The python (3.3) script used to import, filter and transform a .osm file ([exported from OpenStreetMap](https://www.openstreetmap.org/export)) to a JSON file compatible with the simulation and graph creation tool (requires [OSM filter](http://wiki.openstreetmap.org/wiki/Osmfilter))
+* Sim - The actual C++ simulation (requires [jansson](http://www.digip.org/jansson/) library) ; also contains the JSON file used as input in the result generation/analysis part of the thesis.
+* Graph Creation Tool - The processing.js applet to create/edit/visualize graphs used as input for the simulation (requires [processing.js](http://processingjs.org/)). Also contains the python(3.3) script used to "assemble" the separate .pde files composing the applet
+* OSMImport - The python (3.3) script used to import, filter and transform a .osm file ([exported from OpenStreetMap](https://www.openstreetmap.org/export)) to a JSON file compatible with the simulation and graph creation tool (requires [OSM filter](http://wiki.openstreetmap.org/wiki/Osmfilter))
 
 The master thesis can also be found here in pdf format.
 
@@ -26,9 +26,9 @@ Use *make clean* and delete **TAPSim** binary file
 *path_to_binary/TAPSim* <network_file> <other_option>
 
 Where:
-<network_file> : the file containing information about the traffic network to simulate
+\<network_file> : the file containing information about the traffic network to simulate
 
-<other_option> : list of other option ; can contain the following:
+<other_option\> : list of other option ; can contain the following:
 
 	*--preset* <preset_id> : load a preset (with all necessary options covered) ;
 	any options set this way will be overridden by any other options used
