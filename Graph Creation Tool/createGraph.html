@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+ <html>
+ <head>
+   <title>Graph Creation Tool</title>
+   <script src="processing.min.js"></script>
+   <script src="jquery.js"></script>
+   <script type="text/javascript">
+	function resetSketch(id){
+		var pjs = Processing.getInstanceById(id);
+		pjs.setup();
+		document.getElementById('UserInputs').style.display = 'inline';
+	}
+
+	function reachabilityTest(id){
+		var pjs = Processing.getInstanceById(id);
+		unreachableCount = pjs.checkReachabilities();
+		if(unreachableCount > 0){
+			alert("Found "+unreachableCount+" unreachable node(s) !");
+		}
+	}	
+	
+	function getStreetName(){
+		return document.getElementById('stName').value;
+	}
+	
+	function getSpeedLimit(){
+		return document.getElementById('spLimit').value;
+	}
+
+	function getNbBands(){
+		return document.getElementById('nbBands').value;
+	}
+	
+	function getNodeType(){
+		return parseInt(document.getElementById('nodeType').value);
+	}
+	
+	function getNetworkStr(id){
+		var pjs = Processing.getInstanceById(id);
+		var _nodes = pjs.getNodes();
+		
+		var roads = [];
+		var nodes = [];		
+
+		for(p=0, end = _nodes.length; p<end;p++){
+			var node = {};
+			node.x = _nodes[p].x;
+			node.y = _nodes[p].y;
+			node.type = _nodes[p].myType;
+			node.id = p;
+			nodes.push(node);
+			
+			for(j=0, end2 = _nodes[p].roads.length; j<end2;j++){
+				var road = {};
+				//String(formatStrToWrite(r.name) +" "+ destId +" "+ (r.length/1000) +" "+ r.speedLimit + " " + r.nbBands
+				road.name = _nodes[p].roads[j].name;
+				road.startId = p;
+				road.endId = pjs.nodeId(_nodes[p].neighbors[j]);
+				road.length = _nodes[p].roads[j].length/1000;
+				road.speedLimit = _nodes[p].roads[j].speedLimit;
+				road.nbBands = _nodes[p].roads[j].nbBands;
+				
+				roads.push(road);
+			}
+		}
+
+		var jsonObj = {};
+		jsonObj.nodes = nodes;
+		jsonObj.roads = roads;
+		jsonObj.metric = 1;//KPH
+		return JSON.stringify(jsonObj);
+	}
+	
+	
+	var bound = false;
+
+	function bindJavascript() {
+		var pjs = Processing.getInstanceById('sketch1');
+		if(pjs!=null) {
+			pjs.bindJavascript(this);
+			bound = true;
+		}
+		if(!bound) setTimeout(bindJavascript, 250);
+	}
+	bindJavascript();
+	
+	var textFile = null;
+	function makeTextFile(text) {
+		var data = new Blob([text], {type: 'application/json'});
+
+		// If we are replacing a previously generated file we need to
+		// manually revoke the object URL to avoid memory leaks.
+		if (textFile !== null) {
+			window.URL.revokeObjectURL(textFile);
+		}
+
+		textFile = window.URL.createObjectURL(data);
+
+		return textFile;
+	}
+	function saveNetwork(id){
+		var link = document.getElementById('downloadlink');
+		link.href = makeTextFile(getNetworkStr(id));
+		link.style.display = 'inline';
+	}
+	
+	var data;
+	var tMult;
+	var tIndex;
+	var dcIndex;
+	function loadEntriesFor(t,r){
+		if(data && data.roadsInfos){
+			var rInfos = data.roadsInfos[r.id];
+			entryId=0;
+			end_entry = rInfos.data.length-1;
+			//find correct starting entry
+			if(t>=rInfos.data[end_entry][tIndex]*tMult){
+				entryId = end_entry;
+			}else if(t<rInfos.data[0][tIndex]*tMult){
+				entryId = -1;
+			}else{
+				while(entryId<end_entry && rInfos.data[entryId+1][tIndex]*tMult < t){
+					entryId++;
+				}
+			}
+			if(entryId == -1){
+				r.addEntry(0, rInfos.defaultTT, 0);
+				entryId = 0;
+			}
+			for(end_entry =  Math.min(entryId+100, rInfos.data.length); entryId<end_entry; entryId++){
+				r.addEntry(rInfos.data[entryId][tIndex]*tMult, rInfos.data[entryId][dcIndex]);
+			}
+			
+		}
+	}
+	function readAFile(evt) {
+		//Retrieve the first (and only!) File from the FileList object
+		var f = evt.target.files[0];
+		if (f) {
+			var r = new FileReader();
+			r.onload = function(e) { 
+				var contents = e.target.result;
+				var pjs = Processing.getInstanceById('sketch1');
+				data = eval("("+contents+")");
+				if(data){
+					pjs.setup();
+					for(p=0, end = data.nodes.length; p<end;p++){
+						var type = 0;
+						if(data.nodes[p].type){
+							type = data.nodes[p].type;
+						}
+						pjs.addNode(data.nodes[p].x,data.nodes[p].y,type);
+					}
+					for(p=0, end = data.roads.length; p<end;p++){
+						if (data.metric == 1)
+							pjs.addRoad(data.roads[p].name,data.roads[p].startId,data.roads[p].endId,data.roads[p].speedLimit,data.roads[p].nbBands,data.roads[p].length*1000);
+						else
+							pjs.addRoad(data.roads[p].name,data.roads[p].startId,data.roads[p].endId,data.roads[p].speedLimit,data.roads[p].nbBands);
+					}
+					reachabilityTest('sketch1')
+					if(data.roadsInfos){
+						pjs.setHasRoadsStats(true);
+						tMult = 1/data.timePrecision;
+						tIndex = data.time_index;
+						dcIndex = data.driversCount_index;
+						for(rId=0, end = data.roadsInfos.length; rId<end; rId++){
+							var rInfos = data.roadsInfos[rId];
+							var road = pjs.addRoadInfos(rInfos.startId, rInfos.endId, rInfos.capacity, rInfos.data[rInfos.data.length-1][tIndex]*tMult,rId);
+						}
+						//switch off unnecessary ui elements
+						document.getElementById('UserInputs').style.display = 'none';
+					}
+				}
+			}
+			r.readAsText(f);
+		} else { 
+			alert("Failed to load file");
+		}
+	}
+   </script>
+ </head>
+ <body>
+   <h1>Graph Creation Tool - V0.8</h1>
+   <div id="UserInputs">
+   Street Name: <input type="textfield" id="stName"> Speed Limit:
+   <select id="spLimit">
+      <option value=30>30kph</option>
+      <option value=50>50kph</option>
+      <option value=70>70kph</option>
+      <option value=90>90kph</option>
+      <option value=120>120kph</option>
+   </select>
+   #Bands:
+   <select id="nbBands">
+      <option value=0>Half</option>
+      <option value=1>1</option>
+      <option value=2>2</option>
+      <option value=3>3</option>
+      <option value=4>4</option>
+   </select>
+   Node is:
+   <select id="nodeType">
+      <option value=0>Undefined</option>
+      <option value=1>Residential</option>
+      <option value=2>Work place</option>
+      <option value=3>Commercial</option>
+   </select>
+   Load from : <input type="file" id="fileinput" />
+   <script type="text/javascript">
+	document.getElementById('fileinput').addEventListener('change', readAFile, false);
+   </script>
+   <button id = "save" type="button" onclick="saveNetwork('sketch1');">Save</button>
+   <a download="network.json" id="downloadlink" style="display: none">Download</a>
+   </div>
+   <canvas id="sketch1" data-processing-sources="graphCreation.pde" display= block margin="0 auto 0 auto"></canvas><br>
+   <button type="button" onclick="resetSketch('sketch1');">Reset</button>
+   <button type="button" onclick="reachabilityTest('sketch1');">Reach. Check</button>
+
+ </body>
+</html>
